@@ -1,0 +1,31 @@
+# Course dataset — license forbids redistribution (see assignment PDF A.4)
+audio_features/
+metadata.csv
+annotations.csv
+*.npz
+*.npy
+
+# Generated split / preprocessing outputs
+splits/
+preprocessed/
+aggregated_labels/
+
+# Trained models & training logs
+models/
+models_catboost/
+models_catboost_improved/
+models_crnn/
+catboost_info/
+*.cbm
+*.pt
+
+# Plots
+*.png
+
+# AI assistant working notes (not part of the deliverable)
+memory/
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
