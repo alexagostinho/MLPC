@@ -10,17 +10,35 @@ splits/
 preprocessed/
 aggregated_labels/
 
-# Trained models & training logs
+# Trained models & training run outputs
 models/
 models_catboost/
 models_catboost_improved/
 models_crnn/
+models_svm/
 catboost_info/
+runs/
 *.cbm
 *.pt
 
-# Plots
+# Generated plots — except the figures used in the report
 *.png
+!figures/
+!figures/*.png
+
+# Run / build logs
+*.log
+
+# LaTeX build artifacts
+*.aux
+*.out
+*.toc
+*.synctex.gz
+*.fls
+*.fdb_latexmk
+*.bbl
+*.blg
+report&slides/*.pdf
 
 # AI assistant working notes (not part of the deliverable)
 memory/

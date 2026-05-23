@@ -106,6 +106,16 @@ def best_threshold(y_true, probs):
     return grid[b], f1s[b]
 
 
+def stratified_random_baseline(y_test, y_train, seed=SEED):
+    """No-training baseline: predict 1 per class with prob = train class frequency."""
+    rng = np.random.RandomState(seed)
+    freqs = y_train.mean(axis=0)
+    pred = np.zeros_like(y_test)
+    for c in range(y_test.shape[1]):
+        pred[:, c] = rng.binomial(1, freqs[c], size=y_test.shape[0])
+    return pred
+
+
 def main():
     print("=" * 72)
     print(f"Improved CatBoost — full aggregations + temporal context (+/-{WINDOW})")
@@ -139,10 +149,18 @@ def main():
     fm = f1_score(y_te, pred_tuned, average="macro", zero_division=0)
     fmi = f1_score(y_te, pred_tuned, average="micro", zero_division=0)
 
+    #no-training baseline on the same test set (requirement 3b)
+    pred_base = stratified_random_baseline(y_te, y_tr)
+    base_fm = f1_score(y_te, pred_base, average="macro", zero_division=0)
+    base_fmi = f1_score(y_te, pred_base, average="micro", zero_division=0)
+
     print("\n" + "=" * 72)
     print("TEST RESULTS (tuned thresholds)")
     print("=" * 72)
-    print(f"  F1_macro = {fm:.4f}   F1_micro = {fmi:.4f}")
+    print(f"{'Model':<32}{'F1_macro':>12}{'F1_micro':>12}")
+    print("-" * 56)
+    print(f"{'Baseline (random)':<32}{base_fm:>12.4f}{base_fmi:>12.4f}")
+    print(f"{'CatBoost improved (tuned-thr)':<32}{fm:>12.4f}{fmi:>12.4f}")
     print(f"  (previous mean+std, no-context model: F1_macro = 0.5384)")
 
     f1_pc = f1_score(y_te, pred_tuned, average=None, zero_division=0)
