@@ -1,0 +1,105 @@
+\documentclass{article}
+
+\usepackage[final]{neurips_2023}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{float}
+
+\title{MLPC 2026 Task 5: The Challenge}
+
+\author{%
+  Team Unified Coders \AND
+  Alexandre Escudier Agostinho
+  \And
+  Jakob Hinterholzer
+}
+
+\begin{document}
+
+\maketitle
+
+\section{Baseline Reproduction}
+
+\subsection{Training and Evaluation of the Baseline}
+
+We reproduced the provided baseline using one binary decision tree classifier per sound event class (15 classifiers total), trained on 50{,}000 segments subsampled from the 170{,}508 training segments (960 features per segment). Predictions are generated for overlapping 1-second segments with 0.5\,s hop, and every second segment is discarded so that only predictions starting at full-second timestamps are retained. Using the official evaluation script, we obtain a Segment-based Macro F1 Score of \textbf{0.3170} on the non-hidden test set (0.3072 on the local validation set). Figure~\ref{fig:baseline-bars} shows the per-class F1 scores, and Table~\ref{tab:baseline-perclass} reports per-class precision, recall, and F1 on the non-hidden test set, together with the class frequency in the training set.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.95\linewidth]{baseline_perclass_f1.png}
+  \caption{Per-class F1 of the baseline decision tree system on the local validation and non-hidden test sets.}
+  \label{fig:baseline-bars}
+\end{figure}
+
+\begin{table}[H]
+  \caption{Per-class results of the baseline on the non-hidden test set, sorted by F1.}
+  \label{tab:baseline-perclass}
+  \centering
+  \small
+  \begin{tabular}{lrrrr}
+    \toprule
+    Class & Precision & Recall & F1 & Train Freq.\ \\
+    \midrule
+    running\_water              & 0.655 & 0.517 & \textbf{0.578} & 13.6\% \\
+    phone\_ringing              & 0.534 & 0.444 & 0.485 & 7.6\% \\
+    vacuum\_cleaner             & 0.485 & 0.455 & 0.470 & 6.7\% \\
+    microwave                   & 0.408 & 0.373 & 0.390 & 7.5\% \\
+    coffee\_machine             & 0.504 & 0.283 & 0.362 & 3.8\% \\
+    keyboard\_typing            & 0.372 & 0.347 & 0.359 & 10.4\% \\
+    footsteps                   & 0.385 & 0.293 & 0.333 & 14.4\% \\
+    keychain                    & 0.365 & 0.287 & 0.321 & 5.8\% \\
+    toilet\_flushing            & 0.288 & 0.292 & 0.290 & 3.4\% \\
+    bell\_ringing               & 0.426 & 0.218 & 0.288 & 1.5\% \\
+    cutlery\_dishes             & 0.294 & 0.281 & 0.287 & 7.9\% \\
+    light\_switch               & 0.240 & 0.228 & 0.234 & 1.6\% \\
+    door\_open\_close           & 0.200 & 0.159 & 0.177 & 5.5\% \\
+    wardrobe\_drawer\_open\_close & 0.134 & 0.109 & 0.120 & 3.0\% \\
+    window\_open\_close         & 0.057 & 0.066 & 0.061 & 2.1\% \\
+    \midrule
+    \textbf{Macro Average}      & --    & --    & \textbf{0.317} & -- \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Performance Differences Between Classes}
+
+The per-class results reveal three distinct tiers that correlate more strongly with the acoustic nature and duration of each class than with raw class frequency.
+
+\textbf{Sustained, distinctive sounds dominate.} The top performers (running\_water 0.58, phone\_ringing 0.49, vacuum\_cleaner 0.47, microwave 0.39) all last several seconds and produce stable, spectrally distinctive signals. A continuous event completely fills the 1-second feature window, so almost every segment of a true event contains a clean positive example. Their spectral signatures (broadband noise for water and vacuum, periodic tonal pattern for ringing) are well captured by MFCCs and mel-spectrogram features.
+
+\textbf{Class frequency alone does not predict performance.} Footsteps is the most frequent class (14.4\%) but ranks only 7th in F1 (0.33). On the other hand, coffee\_machine is comparatively rare (3.8\%) but ranks 5th (0.36). What footsteps, keychain (0.32), and cutlery\_dishes (0.29) have in common is most likely acoustic ambiguity: they are short impact-like sounds that resemble each other as well as other impacts in the dataset (door, wardrobe), so the classifier struggles to separate them from 1-second summary statistics alone.
+
+\textbf{Short transient events are systematically the hardest.} The four worst-performing classes are exactly the events with the shortest typical duration: window\_open\_close (0.06), wardrobe\_drawer\_open\_close (0.12), door\_open\_close (0.18), and light\_switch (0.23). These events often last well below 1\,s, so the aggregating 1-second window captures the event together with surrounding background noise, diluting the discriminative signal. Furthermore, because annotation overlap is binarized at the segment level, segments containing a brief event surrounded by silence inherit the same positive label as segments fully covered by an event, introducing additional label noise.
+
+\textbf{Precision exceeds recall for nearly every class.} Across all classes the average precision (0.36) is noticeably higher than the average recall (0.28). Decision trees trained on imbalanced data tend to default to the negative class unless features strongly indicate the positive class. The result is a conservative system: when it predicts an event, it is often correct, but it misses many true events. The effect is most extreme for rare classes such as bell\_ringing (precision 0.43, recall 0.22).
+
+\subsection{Strengths and Limitations of the Baseline}
+
+\textbf{Strengths.} The baseline is simple, interpretable, and consistent between validation and test splits (0.307 vs.\ 0.317), suggesting that the training subsample is representative and that decision trees with default settings do not overfit. Independent binary classifiers naturally support the polyphonic multi-label setting: multiple classes can be predicted active for the same segment without any architectural change. The feature representation (MFCCs, mel spectrogram, spectral descriptors, energy/power statistics with mean/std/min/max aggregations) is rich enough to capture sustained sounds robustly, and tree-based models handle the heterogeneous feature scales without requiring normalization.
+
+\textbf{Limitations.} Four structural design choices of the baseline explain most of the observed errors.
+
+(1) Decision tree capacity. A single tree cannot represent smooth, continuous decision boundaries in 960-dimensional feature space. Capturing fine acoustic distinctions (e.g.\ separating footsteps from a wardrobe drawer) requires either ensembles (random forests, gradient boosting) or models that learn continuous feature interactions, such as an MLP.
+
+(2) Independent binary classifiers. Each classifier predicts its class in isolation, ignoring class co-occurrence patterns. Footsteps frequently co-occur with door\_open\_close, and cutlery\_dishes with running\_water. A joint model could exploit these correlations to disambiguate similar impact sounds, whereas the baseline cannot.
+
+(3) Fixed 1-second temporal resolution. The 1-second segment is fundamentally mismatched to short transient events. A window opening lasts perhaps 0.3--0.5\,s, but the feature aggregation summarizes a full second around it, mixing the event with silence and reducing the signal-to-noise ratio of the positive class. This is the largest reason why transient events sit at the bottom of Table~\ref{tab:baseline-perclass}.
+
+(4) No temporal context across segments. Each segment is classified independently, so the prediction sequence can be temporally noisy: a class may flicker on and off across consecutive segments even within a continuous event. The baseline also discards the half-second overlapping segments, throwing away potentially useful information.
+
+\section{Simple Classifier}
+\section{Post Processing and Temporal Refinement}
+\section{Reflection and Real-World Considerations}
+\section*{Disclosure of LLM and AI Tool Use}
+
+Claude (Anthropic) and ChatGPT were used to assist with Python implementation of the data processing and classification pipelines, LaTeX formatting, and improving writing clarity. All generated code was tested on our dataset and modified where necessary. All reported results were verified by running the experiments and inspecting the outputs. Content was critically reviewed for technical accuracy before inclusion.
+
+\end{document}
